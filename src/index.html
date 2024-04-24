@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scatter Plot with Dynamic Filters</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+    <h1>Interactive Scatter Plot</h1>
+    <div>
+        <label for="payerFilter">Select Payer:</label>
+        <select id="payerFilter">
+            <option value="">--Select Payer--</option>
+            <!-- Options will be populated here -->
+        </select>
+
+        <label for="codeFilter">Select Code:</label>
+        <select id="codeFilter">
+            <option value="">--Select Code--</option>
+            <!-- Options will be populated here -->
+        </select>
+
+        <label for="rateType">Select Rate Type:</label>
+        <select id="rateType">
+            <option value="avg_rate">Average Rate</option>
+            <option value="max_rate">Max Rate</option>
+            <option value="min_rate">Min Rate</option>
+        </select>
+
+        <button onclick="updateChart()">Update Chart</button>
+    </div>
+    <canvas id="myChart"></canvas>
+
+    <script type="module">
+        var rawData = [];
+        var chart = null;
+
+        // Parse the CSV file
+        Papa.parse('src/sample_table.csv', {
+            header: true,
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                if (results && results.data) {
+                    rawData = results.data;
+                    initializeFilters();
+                    console.log(rawData)
+                } else {
+                    console.error('No data found in CSV.');
+                }
+            },
+            error: function(error) {
+                console.error('Error parsing CSV:', error);
+            },
+            
+        });
+
+        function initializeFilters() {
+            var payerSet = new Set();
+            var codeSet = new Set();
+            
+            rawData.forEach(function(item) {
+                if (item.payer && item.code) {
+                    payerSet.add(item.payer);
+                    codeSet.add(item.code);
+                }
+            });
+
+            var payerFilter = document.getElementById('payerFilter');
+            var codeFilter = document.getElementById('codeFilter');
+            
+            payerSet.forEach(function(payer) {
+                payerFilter.add(new Option(payer, payer));
+            });
+
+            codeSet.forEach(function(code) {
+                codeFilter.add(new Option(code, code));
+            });
+        }
+
+        function updateChart() {
+            var selectedPayer = document.getElementById('payerFilter').value;
+            var selectedCode = document.getElementById('codeFilter').value;
+            var selectedRateType = document.getElementById('rateType').value;
+            
+            var filteredData = rawData.filter(function(item) {
+                return (!selectedPayer || item.payer === selectedPayer) &&
+                       (!selectedCode || item.code === selectedCode);
+            });
+
+            var dataPoints = filteredData.map(function(item) {
+                return { x: item.code, y: item[selectedRateType] };
+            });
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            var ctx = document.getElementById('myChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: `${selectedRateType.replace('_', ' ')} for ${selectedPayer}`,
+                        data: dataPoints,
+                        backgroundColor: 'rgba(0, 123, 255, 0.5)',
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: 'Code'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Rate'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
